@@ -7,11 +7,16 @@ class HolmesAdmin {
         add_action('admin_menu', array($this, 'admin_menu'));
 
         add_action('admin_enqueue_scripts', array($this, 'enqueue_javascripts'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_stylesheets'));
     }
 
     public function enqueue_javascripts() {
         wp_enqueue_script('jquery');
         wp_enqueue_script('holmes_admin_script', plugins_url('holmes') . '/javascripts/admin.js', array('jquery'), '1.0.0');
+    }
+
+    public function enqueue_stylesheets() {
+        wp_enqueue_style('holmes_admin_stylesheet', plugins_url('holmes') . '/stylesheets/admin.css', array(), '1.0.0');
     }
 
     public function admin_menu() {
@@ -99,6 +104,12 @@ class HolmesAdmin {
                 <?php do_settings_sections('holmes_settings'); ?>
                 <?php submit_button(); ?>
             </form>
+            <div class="indexer-container">
+                <div id="indexer-progress-bar" class="progress progress-striped active">
+                    <div class="bar"></div>
+                </div>
+                <a href="#" id="run-indexer" class="button button-primary button-indexer">Index</a>
+            </div>
 
         </div>
 
