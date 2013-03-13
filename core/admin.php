@@ -100,7 +100,6 @@ class HolmesAdmin {
 
             <form method="post" action="options.php"> 
                 <?php settings_fields('holmes_search_settings_options_group'); ?>
-                <?php //settings_fields('holmes_settings_searchable_fields_section'); ?>
                 <?php do_settings_sections('holmes_settings'); ?>
                 <?php submit_button(); ?>
             </form>

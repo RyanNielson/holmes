@@ -7,13 +7,15 @@
  * Description: Improved Wordpress search.
  */
 
-
+require_once('core/indexer.php');
+require_once('core/searcher.php');
 require_once('core/admin.php');
 
 class Holmes {
 
     public function __construct() {
        new HolmesAdmin;
+       new HolmesIndexer;
     }
 
 }

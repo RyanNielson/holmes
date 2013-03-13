@@ -6,8 +6,4 @@ class HolmesSearch {
 
     }
 
-    public do_search($query) {
-
-    }
-
 }
