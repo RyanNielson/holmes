@@ -8,6 +8,33 @@ class HolmesAdmin {
 
         add_action('admin_enqueue_scripts', array($this, 'enqueue_javascripts'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_stylesheets'));
+
+        add_action('wp_ajax_holmes_poll_indexer_progress', array($this, 'ajax_poll_indexer_progress'));
+        add_action('wp_ajax_nopriv_holmes_poll_indexer_progress', array($this, 'ajax_poll_indexer_progress'));
+
+        add_action('wp_ajax_holmes_start_indexer', array($this, 'ajax_start_indexer'));
+        add_action('wp_ajax_nopriv_holmes_start_indexer', array($this, 'ajax_start_indexer'));
+
+        add_action('wp_ajax_holmes_initiate_indexer', array($this, 'ajax_initiate_indexer'));
+        add_action('wp_ajax_nopriv_holmes_initiate_indexer', array($this, 'ajax_initiate_indexer'));
+    }
+
+    public function ajax_poll_indexer_progress() {
+        $percentage_complete = get_option('holmes_indexer_progress');
+        echo json_encode(array('percentage_complete' => $percentage_complete));
+        exit();
+    }
+
+    public function ajax_start_indexer() {
+        $indexer = new HolmesIndexer;
+        $indexer->index();
+        echo json_encode(array('success' => true));
+        exit();
+    }
+
+    public function ajax_initiate_indexer() {
+        update_option('holmes_indexer_progress', 0);
+        exit();
     }
 
     public function enqueue_javascripts() {

@@ -5,14 +5,30 @@ require_once(dirname(__FILE__) . '/../stemmer/porter_stemmer.php');
 class HolmesIndexer {
 
     public function __construct() {
-        $this->index();
+        //$this->index();
     }
 
     public function index() {
+        global $wpdb;
+
+        // Reset DB and option value.
+        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_index"));
+
         $stemmer = new Stemmer;
         $searchable_post_types = $this->get_searchable_post_types();
 
         $term_list = array();
+
+
+        $total_posts_count = 0;
+        foreach ($searchable_post_types as $post_type => $fields) {
+            $post_count = wp_count_posts($post_type);
+            if (isset($post_count) && isset($post_count->publish)) 
+                $total_posts_count += $post_count->publish;
+        }
+
+        $number_posts_indexed = 0;
+
         foreach ($searchable_post_types as $post_type => $fields) {
             $posts = get_posts(array('post_type' => $post_type, 'numberposts' => -1));
 
@@ -45,16 +61,14 @@ class HolmesIndexer {
                 foreach ($stemmed_terms_with_count as $term => $count) {
                     $term_list[$term][] = array('doc_id' => $post->ID, 'count' => $count);
                 }
-            }
-           
 
-            // echo '<pre>';
-            // print_r($stemmed_words);
-            // echo '</pre>';
+                $number_posts_indexed += 1;
+                update_option('holmes_indexer_progress', floor(($number_posts_indexed / $total_posts_count) * 100));
+            }
+
+            
         }
 
-        global $wpdb;
-        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_index"));
         foreach ($term_list as $term => $locations) {
             $wpdb->insert(
                 $wpdb->prefix . "holmes_index",
@@ -63,16 +77,7 @@ class HolmesIndexer {
                     'data' => serialize($locations)
                 )
             );
-
         }
-
-        // echo '<pre>';
-        // print_r($term_list);
-        // echo '</pre>';
-
-        // echo '<pre>';
-        // print_r($searchable_post_types);
-        // echo '</pre>';
     }
 
     private function replace_stopwords($input) {
