@@ -5,20 +5,20 @@ require_once(dirname(__FILE__) . '/../stemmer/porter_stemmer.php');
 class HolmesIndexer {
 
     public function __construct() {
-        //$this->index();
+        $this->NUM_INDEXED_PER_REQUEST = 100;
+        $this->stemmer = new Stemmer;
     }
 
-    public function index() {
+    public function index($index_offset = 0) {
         global $wpdb;
 
-        // Reset DB and option value.
-        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_index"));
-
-        $stemmer = new Stemmer;
-        $searchable_post_types = $this->get_searchable_post_types();
-
+        $num_indexed_per_request = $this->NUM_INDEXED_PER_REQUEST;
+        $num_documents_looped_through = 0;
+        $current_document_num = 0;
+        $num_index_upper_limit = $index_offset + $num_indexed_per_request;
         $term_list = array();
-
+       
+        $searchable_post_types = $this->get_searchable_post_types();
 
         $total_posts_count = 0;
         foreach ($searchable_post_types as $post_type => $fields) {
@@ -27,56 +27,104 @@ class HolmesIndexer {
                 $total_posts_count += $post_count->publish;
         }
 
-        $number_posts_indexed = 0;
+        $docs_looped = array();
+
+        if ($num_index_upper_limit > $total_posts_count)
+            $num_index_upper_limit = $total_posts_count;
 
         foreach ($searchable_post_types as $post_type => $fields) {
-            $posts = get_posts(array('post_type' => $post_type, 'numberposts' => -1));
+            $posts = get_posts(array('post_type' => $post_type, 'numberposts' => -1, 'orderby' => 'ID', 'order' => 'ASC'));
 
             foreach ($posts as $post) {
-                $stemmed_terms = array();
-                $stemmed_terms_with_count = array();
+                $num_documents_looped_through += 1;
 
-                foreach ($fields as $field => $attributes) {
-                    if ($field === 'title') {
-                        $value = $post->post_title;
-                    }   
-                    else if ($field === 'content') {
-                        $value = $post->post_content;
+                if ($num_documents_looped_through > $index_offset) {
+                    $stemmed_terms = array();
+                    $stemmed_terms_with_count = array();
+
+                    foreach ($fields as $field => $attributes) {
+                        if ($field === 'title') {
+                            $value = $post->post_title;
+                        }   
+                        else if ($field === 'content') {
+                            $value = $post->post_content;
+                        }
+                        else {
+
+                        }
+
+                        $value = str_replace("'", "", $value);  // Remove apostrophes to fix stemming and stop word replacement.
+                        $stemmed_terms = array_merge($stemmed_terms, $this->stemmer->stem_list($this->replace_stopwords($value)));
                     }
-                    else {
 
+                    foreach ($stemmed_terms as $term) {
+                        if (isset($stemmed_terms_with_count[$term]))
+                            $stemmed_terms_with_count[$term] += 1;
+                        else
+                            $stemmed_terms_with_count[$term] = 1;
                     }
 
-                    $value = str_replace("'", "", $value);  // Remove apostrophes to fix stemming and stop word replacement.
-                    $stemmed_terms = array_merge($stemmed_terms, $stemmer->stem_list($this->replace_stopwords($value)));
-                }
+                    foreach ($stemmed_terms_with_count as $term => $count) {
+                        $term_list[$term][] = array('doc_id' => $post->ID, 'count' => $count);
+                    }
 
-                foreach ($stemmed_terms as $term) {
-                    if (isset($stemmed_terms_with_count[$term]))
-                        $stemmed_terms_with_count[$term] += 1;
-                    else
-                        $stemmed_terms_with_count[$term] = 1;
+                    if ($num_documents_looped_through >= $total_posts_count) {
+                        $result = $this->dump_to_db($term_list);
+                        return array('result' => 'complete', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
+                    }
+                    else if ($num_documents_looped_through >= $num_index_upper_limit) {
+                        $result = $this->dump_to_db($term_list);
+                        return array('result' => 'more', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
+                    }
                 }
-
-                foreach ($stemmed_terms_with_count as $term => $count) {
-                    $term_list[$term][] = array('doc_id' => $post->ID, 'count' => $count);
-                }
-
-                $number_posts_indexed += 1;
-                update_option('holmes_indexer_progress', floor(($number_posts_indexed / $total_posts_count) * 100));
             }
-
             
         }
 
-        foreach ($term_list as $term => $locations) {
-            $wpdb->insert(
-                $wpdb->prefix . "holmes_index",
+        return array('result' => 'error');
+    }
+
+    private function dump_to_db($term_list) {
+        global $wpdb;
+
+
+        $terms_to_ids = array();
+        $terms = $wpdb->get_results(
+            $wpdb->prepare("SELECT term, id FROM " . $wpdb->prefix . "holmes_term_index"), 
+            ARRAY_A
+        );
+
+        foreach ($terms as $term) {
+            $terms_to_ids[$term['term']] = $term['id'];
+        }
+
+        // echo json_encode(array_keys($term_list));
+        // exit();
+
+        foreach ($term_list as $term => $documents) {
+            $result = $wpdb->insert(
+                $wpdb->prefix . "holmes_term_index",
                 array(
-                    'term' => $term,
-                    'data' => serialize($locations)
+                    'term' => $term
                 )
             );
+
+            if ($result !== false) {
+                $terms_to_ids[$term] = $wpdb->insert_id;
+            }
+        }
+
+        foreach ($term_list as $term => $documents) {
+            foreach ($documents as $document) {
+                $wpdb->insert(
+                    $wpdb->prefix . "holmes_document_index",
+                    array(
+                        'term_id' => $terms_to_ids[$term],
+                        'document_id' => $document['doc_id'],
+                        'count' => $document['count']
+                    )
+                );
+            }
         }
     }
 
@@ -101,9 +149,4 @@ class HolmesIndexer {
 
         return $searchable_fields;
     }
-
-     // private function filter_searchable_types($val) {
-    //     return in_array($val, get_option('holmes_searchable_fields'));
-    // }
-
 }

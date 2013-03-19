@@ -15,6 +15,9 @@ class HolmesAdmin {
         add_action('wp_ajax_holmes_start_indexer', array($this, 'ajax_start_indexer'));
         add_action('wp_ajax_nopriv_holmes_start_indexer', array($this, 'ajax_start_indexer'));
 
+        add_action('wp_ajax_holmes_run_indexer', array($this, 'ajax_run_indexer'));
+        add_action('wp_ajax_nopriv_holmes_run_indexer', array($this, 'ajax_run_indexer'));
+
         add_action('wp_ajax_holmes_initiate_indexer', array($this, 'ajax_initiate_indexer'));
         add_action('wp_ajax_nopriv_holmes_initiate_indexer', array($this, 'ajax_initiate_indexer'));
     }
@@ -25,10 +28,44 @@ class HolmesAdmin {
         exit();
     }
 
-    public function ajax_start_indexer() {
+    // public function ajax_start_indexer() {
+    //     $indexer = new HolmesIndexer;
+    //     $indexer->index();
+    //     echo json_encode(array('success' => true));
+    //     exit();
+    // }
+
+    public function ajax_run_indexer() {
+        // $index_offset = get_option('holmes_indexer_offset');
+        // $index_offset = (isset($index_offset) && $index_offset) ? $index_offset : 0;
+
+        $index_offset = get_option('holmes_indexer_offset');
+        $index_offset = (isset($index_offset) && $index_offset) ? $index_offset : 0;
+        update_option('holmes_indexer_offset', $index_offset + 100);
+
         $indexer = new HolmesIndexer;
-        $indexer->index();
-        echo json_encode(array('success' => true));
+        $result = $indexer->index($index_offset);
+
+
+        echo json_encode($result);
+        exit();
+        //$result = $indexer->index($index_offset);
+        // echo json_encode(array('result' => $result, 'num' => $index_offset));
+        // exit();
+    }
+
+    public function ajax_start_indexer() {
+        global $wpdb;
+
+        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_term_index"));
+        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_document_index"));
+
+        update_option('holmes_indexer_offset', 100);
+
+        $indexer = new HolmesIndexer;
+        $result = $indexer->index();
+
+        echo json_encode($result);
         exit();
     }
 
