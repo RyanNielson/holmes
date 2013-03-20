@@ -19,31 +19,9 @@
                 }
             };
 
-            var indexPoller = function() {
-                var ajaxurl = '/wp-admin/admin-ajax.php';
-                var data = { action: 'holmes_poll_indexer_progress' };
-
-                setTimeout(function() {
-                    $.getJSON(ajaxurl, data, function(response) {
-                        var percentage = response['percentage_complete'];
-
-                        var bar = $('#indexer-progress-bar > div');
-                        bar.width(percentage + '%');
-                        bar.text(percentage + "%");
-
-                        if (percentage >= 100) {
-                            $('#indexer-progress-bar').removeClass('progress-striped');
-                            bar.addClass('bar-success');
-                            bar.text('Indexing Completed');
-                        } else {
-                            indexPoller();
-                        }
-                    });
-                }, 250);
-            };
-
             var indexStart = function() {
                 var ajaxurl = '/wp-admin/admin-ajax.php';
+                indexBarAnimate(0);
                 $.get(ajaxurl, { action: 'holmes_start_indexer' }, function(response) {
                     console.log(response);
                     if (response.result == 'more') {
@@ -54,8 +32,9 @@
                         indexBarAnimate(100);
                         console.log('completed index');
                     }
-                    else
+                    else {
                         console.log('indexing error');
+                    }
                 }, 'json');
             };
 
@@ -72,17 +51,10 @@
                         console.log('completed index');
 
                     }
-                    else
+                    else {
                         console.log('indexing error');
+                    }
                 }, 'json');
-            };
-
-
-            var indexInitiator = function() {
-                var ajaxurl = '/wp-admin/admin-ajax.php';
-                $.get(ajaxurl, { action: 'holmes_initiate_indexer' }, function(response) {
-                    indexStart();
-                });
             };
 
             $('#run-indexer').click(function(e) {
@@ -91,9 +63,7 @@
                 $('#indexer-progress-bar').addClass('progress-striped');
 
                 $('#indexer-progress-bar').fadeIn(500, function() {
-                    var percentageWidth = 0;
-
-                    indexInitiator();
+                    indexStart();
                 });
 
                 return false;

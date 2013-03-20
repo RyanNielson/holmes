@@ -70,11 +70,17 @@ class HolmesIndexer {
 
                     if ($num_documents_looped_through >= $total_posts_count) {
                         $result = $this->dump_to_db($term_list);
-                        return array('result' => 'complete', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
+                        if ($result === false)
+                            return array('result' => 'error', 'message' => 'Error adding to index.');
+                        else
+                            return array('result' => 'complete', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
                     }
                     else if ($num_documents_looped_through >= $num_index_upper_limit) {
                         $result = $this->dump_to_db($term_list);
-                        return array('result' => 'more', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
+                        if ($result === false)
+                            return array('result' => 'error', 'message' => 'Error adding to index.');
+                        else
+                            return array('result' => 'more', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
                     }
                 }
             }
@@ -84,48 +90,59 @@ class HolmesIndexer {
         return array('result' => 'error');
     }
 
-    private function dump_to_db($term_list) {
+    private function update_terms_index($term_list) {
         global $wpdb;
 
-
         $terms_to_ids = array();
+
         $terms = $wpdb->get_results(
             $wpdb->prepare("SELECT term, id FROM " . $wpdb->prefix . "holmes_term_index"), 
             ARRAY_A
         );
 
-        foreach ($terms as $term) {
+        foreach ($terms as $term)
             $terms_to_ids[$term['term']] = $term['id'];
-        }
-
-        // echo json_encode(array_keys($term_list));
-        // exit();
 
         foreach ($term_list as $term => $documents) {
-            $result = $wpdb->insert(
-                $wpdb->prefix . "holmes_term_index",
-                array(
-                    'term' => $term
-                )
-            );
-
-            if ($result !== false) {
-                $terms_to_ids[$term] = $wpdb->insert_id;
+            if (!array_key_exists($term, $terms_to_ids)) {
+                $result = $wpdb->insert(
+                    $wpdb->prefix . "holmes_term_index",
+                    array('term' => $term)
+                );
+               
+                if ($result !== false)
+                    $terms_to_ids[$term] = $wpdb->insert_id;
             }
         }
+
+        return $terms_to_ids;
+    }
+
+    private function dump_to_db($term_list) {
+        global $wpdb;
+
+        $terms_to_ids = $this->update_terms_index($term_list);
+        
+        return $this->add_to_document_index($term_list, $terms_to_ids);
+    }
+
+    private function add_to_document_index($term_list, $terms_to_ids) {
+        global $wpdb;
+
+        $sql = "INSERT INTO " . $wpdb->prefix . "holmes_document_index (term_id, document_id, count) VALUES ";
+        $values = array();
+        $place_holders = array();
 
         foreach ($term_list as $term => $documents) {
             foreach ($documents as $document) {
-                $wpdb->insert(
-                    $wpdb->prefix . "holmes_document_index",
-                    array(
-                        'term_id' => $terms_to_ids[$term],
-                        'document_id' => $document['doc_id'],
-                        'count' => $document['count']
-                    )
-                );
+                array_push($values, $terms_to_ids[$term], $document['doc_id'], $document['count']);
+                $place_holders[] = "('%d', '%d' ,'%d')";
             }
         }
+
+        $sql .= implode(', ', $place_holders);
+
+        return $wpdb->query($wpdb->prepare("$sql ", $values));
     }
 
     private function replace_stopwords($input) {
@@ -149,4 +166,45 @@ class HolmesIndexer {
 
         return $searchable_fields;
     }
+
+    public function ajax_run_indexer() {
+        $index_offset = get_option('holmes_indexer_offset');
+        $index_offset = (isset($index_offset) && $index_offset) ? $index_offset : 0;
+        update_option('holmes_indexer_offset', $index_offset + 100);
+
+        $indexer = new HolmesIndexer;
+        $result = $indexer->index($index_offset);
+
+        echo json_encode($result);
+        exit();
+    }
+
+    public function ajax_start_indexer() {
+        global $wpdb;
+
+        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_term_index"));
+        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_document_index"));
+
+        update_option('holmes_indexer_offset', 100);
+
+        $indexer = new HolmesIndexer;
+        $result = $indexer->index();
+
+        echo json_encode($result);
+        exit();
+    }
+
+    public function ajax_initiate_indexer() {
+        update_option('holmes_indexer_progress', 0);
+        exit();
+    }
 }
+
+add_action('wp_ajax_holmes_start_indexer', array('HolmesIndexer', 'ajax_start_indexer'));
+add_action('wp_ajax_nopriv_holmes_start_indexer', array('HolmesIndexer', 'ajax_start_indexer'));
+
+add_action('wp_ajax_holmes_run_indexer', array('HolmesIndexer', 'ajax_run_indexer'));
+add_action('wp_ajax_nopriv_holmes_run_indexer', array('HolmesIndexer', 'ajax_run_indexer'));
+
+add_action('wp_ajax_holmes_initiate_indexer', array('HolmesIndexer', 'ajax_initiate_indexer'));
+add_action('wp_ajax_nopriv_holmes_initiate_indexer', array('HolmesIndexer', 'ajax_initiate_indexer'));
