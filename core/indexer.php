@@ -9,17 +9,63 @@ class HolmesIndexer {
         $this->stemmer = new Stemmer;
     }
 
-    public function index($index_offset = 0) {
-        global $wpdb;
+    private function stem_terms($post, $fields) {
+        $stemmed_terms = array();
 
-        $num_indexed_per_request = $this->NUM_INDEXED_PER_REQUEST;
-        $num_documents_looped_through = 0;
-        $current_document_num = 0;
-        $num_index_upper_limit = $index_offset + $num_indexed_per_request;
-        $term_list = array();
-       
-        $searchable_post_types = $this->get_searchable_post_types();
+        foreach ($fields as $field => $attributes) {
+            $value = '';
+            if ($field === 'title')
+                $value = $post->post_title;
+            else if ($field === 'content')
+                $value = $post->post_content;
+            else
+                $value = get_post_meta($post->ID, $field, true);
 
+            // Fix issue with empty string causing indexing to fail.
+            if (!$value)
+                $value = " ";
+
+            $value = str_replace("'", "", $value);
+            $stemmed_terms = array_merge($stemmed_terms, $this->stemmer->stem_list($this->replace_stopwords($value)));
+        }
+
+        return $this->stem_terms_and_count($stemmed_terms);
+    }
+
+    private function stem_terms_and_count($stemmed_terms) {
+        $stemmed_terms_with_count = array();
+
+        foreach ($stemmed_terms as $term) {
+            if (isset($stemmed_terms_with_count[$term]))
+                $stemmed_terms_with_count[$term] += 1;
+            else
+                $stemmed_terms_with_count[$term] = 1;
+        }
+
+        return $stemmed_terms_with_count;
+    }
+
+    private function check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $term_list) {
+        if ($num_documents_looped_through >= $total_posts_count) {
+            $result = $this->dump_to_db($term_list);
+            if ($result === false)
+                return array('result' => 'error', 'message' => 'Error adding to index.');
+            else
+                return array('result' => 'complete', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count);
+        }
+        else if ($num_documents_looped_through >= $num_index_upper_limit) {
+            $result = $this->dump_to_db($term_list);
+            if ($result === false)
+                return array('result' => 'error', 'message' => 'Error adding to index.');
+            else
+                return array('result' => 'more', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count);
+        }
+        else {
+            return false;
+        }
+    }
+
+    private function get_total_posts_count($searchable_post_types) {
         $total_posts_count = 0;
         foreach ($searchable_post_types as $post_type => $fields) {
             $post_count = wp_count_posts($post_type);
@@ -27,8 +73,20 @@ class HolmesIndexer {
                 $total_posts_count += $post_count->publish;
         }
 
-        $docs_looped = array();
+        return $total_posts_count;
+    }
 
+    public function index($index_offset = 0) {
+        global $wpdb;
+
+        $num_indexed_per_request = 200;
+        $num_documents_looped_through = 0;
+        $num_index_upper_limit = $index_offset + $num_indexed_per_request;
+        $term_list = array();
+       
+        $searchable_post_types = $this->get_searchable_post_types();
+        $total_posts_count = $this->get_total_posts_count($searchable_post_types);
+        
         if ($num_index_upper_limit > $total_posts_count)
             $num_index_upper_limit = $total_posts_count;
 
@@ -39,49 +97,15 @@ class HolmesIndexer {
                 $num_documents_looped_through += 1;
 
                 if ($num_documents_looped_through > $index_offset) {
-                    $stemmed_terms = array();
-                    $stemmed_terms_with_count = array();
-
-                    foreach ($fields as $field => $attributes) {
-                        if ($field === 'title') {
-                            $value = $post->post_title;
-                        }   
-                        else if ($field === 'content') {
-                            $value = $post->post_content;
-                        }
-                        else {
-
-                        }
-
-                        $value = str_replace("'", "", $value);  // Remove apostrophes to fix stemming and stop word replacement.
-                        $stemmed_terms = array_merge($stemmed_terms, $this->stemmer->stem_list($this->replace_stopwords($value)));
-                    }
-
-                    foreach ($stemmed_terms as $term) {
-                        if (isset($stemmed_terms_with_count[$term]))
-                            $stemmed_terms_with_count[$term] += 1;
-                        else
-                            $stemmed_terms_with_count[$term] = 1;
-                    }
+                    $stemmed_terms_with_count = $this->stem_terms($post, $fields);
 
                     foreach ($stemmed_terms_with_count as $term => $count) {
                         $term_list[$term][] = array('doc_id' => $post->ID, 'count' => $count);
                     }
 
-                    if ($num_documents_looped_through >= $total_posts_count) {
-                        $result = $this->dump_to_db($term_list);
-                        if ($result === false)
-                            return array('result' => 'error', 'message' => 'Error adding to index.');
-                        else
-                            return array('result' => 'complete', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
-                    }
-                    else if ($num_documents_looped_through >= $num_index_upper_limit) {
-                        $result = $this->dump_to_db($term_list);
-                        if ($result === false)
-                            return array('result' => 'error', 'message' => 'Error adding to index.');
-                        else
-                            return array('result' => 'more', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count, 'upper_limit' => $num_index_upper_limit);
-                    }
+                    $result = $this->check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $term_list);
+                    if ($result !== false)
+                        return $result;
                 }
             }
             
@@ -170,7 +194,7 @@ class HolmesIndexer {
     public function ajax_run_indexer() {
         $index_offset = get_option('holmes_indexer_offset');
         $index_offset = (isset($index_offset) && $index_offset) ? $index_offset : 0;
-        update_option('holmes_indexer_offset', $index_offset + 100);
+        update_option('holmes_indexer_offset', $index_offset + 200);
 
         $indexer = new HolmesIndexer;
         $result = $indexer->index($index_offset);
@@ -185,7 +209,7 @@ class HolmesIndexer {
         $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_term_index"));
         $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_document_index"));
 
-        update_option('holmes_indexer_offset', 100);
+        update_option('holmes_indexer_offset', 200);
 
         $indexer = new HolmesIndexer;
         $result = $indexer->index();

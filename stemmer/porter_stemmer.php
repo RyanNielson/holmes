@@ -159,8 +159,7 @@ class Stemmer
 
         $results = array();
 
-        if ( !is_array($words) ) {
-            // $words = str_replace("'", "", $words);          // Added to better handle apostrophes.
+        if (!is_array($words)) {
             $words = split("[ ,;\.\n\r\t]+", trim($words)); // Added period to split at end of sentences.
         }
 

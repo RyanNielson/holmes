@@ -49,7 +49,6 @@
                     else if (response.result == 'complete') {
                         indexBarAnimate(100);
                         console.log('completed index');
-
                     }
                     else {
                         console.log('indexing error');
