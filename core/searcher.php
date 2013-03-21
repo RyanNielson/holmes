@@ -7,7 +7,6 @@ class HolmesSearch {
     }
 
     public function search($query = '') {
-        echo '<pre>';
         $query = str_replace("'", "", $query);
         $query_terms = split("[ ,;\.\n\r\t]+", trim($query));
         
@@ -25,10 +24,6 @@ class HolmesSearch {
             $ranked_documents[$document_id] = $document_vector_sum;
         }
 
-        echo '<br/><br/><h1>Document Vectors</h1></br/>';
-        print_r($ranked_documents);
-        echo '</pre>';
-
         return $ranked_documents;
     }
 
@@ -44,7 +39,7 @@ class HolmesSearch {
         }
 
         foreach ($query_term_counts as $term => $count) {
-            $query_vector[$term] = $count; // / count($query_terms); Readd later if necessary
+            $query_vector[$term] = $count; // / count($query_terms); Read later if necessary
         }
 
         // Toss in normalization function.
@@ -72,15 +67,6 @@ class HolmesSearch {
         foreach ($occurances as $occurance) {
             $documents[$occurance['document_id']][$occurance['term']] = $occurance['count'];
         }
-
-        // // Default term counts to 0. Clean up, HACK
-        // foreach ($query_terms as $term) {
-        //     foreach ($documents as &$document) {
-        //         if (!array_key_exists($term, $document)) {
-        //             $document[$term] = 0;
-        //         }
-        //     }
-        // }
 
         $term_to_documents = array();
         foreach ($occurances as $occurance) {
