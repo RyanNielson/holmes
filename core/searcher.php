@@ -2,10 +2,6 @@
 
 class HolmesSearch {
 
-    public function __construct() {
-
-    }
-
     public function search($query = '') {
         $query = str_replace("'", "", $query);
         $query_terms = split("[ ,;\.\n\r\t]+", trim($query));
@@ -13,9 +9,15 @@ class HolmesSearch {
         $query_vector = $this->generate_query_vector($query_terms);
         $document_vectors = $this->generate_document_vectors($query_terms);
         
+        $ranked_documents = $this->rank_documents($query_vector, $document_vectors);
+        arsort($ranked_documents);
+        
+        return $ranked_documents;
+    }
+
+    private function rank_documents($query_vector, $document_vectors) {
         $ranked_documents = array();
         foreach ($document_vectors as $document_id => $terms) {
-            $document_vector_score = array();
             $document_vector_sum = 0;
             foreach ($terms as $term => $tfidf) {
                 $document_vector_sum += $query_vector[$term] * $tfidf;
@@ -42,18 +44,25 @@ class HolmesSearch {
             $query_vector[$term] = $count; // / count($query_terms); Read later if necessary
         }
 
-        // Toss in normalization function.
+        $query_vector = $this->normalize_vector($query_vector);
+
+        return $query_vector;
+    }
+
+    private function normalize_vector($vector) {
+        $normalized_vector = array();
         $normalization_sum = 0;
-        foreach ($query_vector as $term => $tfidf) {
+
+        foreach ($vector as $term => $tfidf) {
             $normalization_sum += pow($tfidf, 2);
         }
         $normalization_value = sqrt($normalization_sum);
 
-         foreach ($query_vector as $term => $tfidf) {
-            $query_vector[$term] = $tfidf / $normalization_value;
+        foreach ($vector as $term => $tfidf) {
+            $normalized_vector[$term] = $tfidf; //Remove normalization / $normalization_value;
         }
 
-        return $query_vector;
+        return $normalized_vector;
     }
 
     private function generate_document_vectors($query_terms) {
@@ -64,26 +73,21 @@ class HolmesSearch {
         $num_total_documents = $wpdb->get_var("SELECT COUNT(DISTINCT(document_id)) FROM wp_holmes_document_index");
 
         $documents = array();
-        foreach ($occurances as $occurance) {
-            $documents[$occurance['document_id']][$occurance['term']] = $occurance['count'];
-        }
-
         $term_to_documents = array();
         foreach ($occurances as $occurance) {
+            $documents[$occurance['document_id']][$occurance['term']] = $occurance['count'];
             $term_to_documents[$occurance['term']][] = $occurance['document_id'];
         }
 
         // Default term counts to 0. Clean up, HACK
         foreach ($query_terms as $term) {
             foreach ($documents as &$document) {
-                if (!array_key_exists($term, $document)) {
+                if (!array_key_exists($term, $document))
                     $document[$term] = 0;
-                }
             }
 
-            if (!array_key_exists($term, $term_to_documents)) {
+            if (!array_key_exists($term, $term_to_documents))
                 $term_to_documents[$term] = array();
-            }
         }
 
         $document_vectors = array();
@@ -96,19 +100,7 @@ class HolmesSearch {
                 $document_vector[$term] = $tf * $idf;
             }
 
-            $normalization_sum = 0;
-            foreach ($document_vector as $term => $tfidf) {
-                $normalization_sum += pow($tfidf, 2);
-            }
-            $normalization_value = sqrt($normalization_sum);
-
-            foreach ($document_vector as $term => $tfidf) {
-                $document_vector[$term] = $tfidf; // / $normalization_value; IF causes issues
-            }
-
-            
-
-            $document_vectors[$document_id] = $document_vector;
+            $document_vectors[$document_id] = $this->normalize_vector($document_vector);
         }
 
         return $document_vectors;
