@@ -2,7 +2,7 @@
 
 class HolmesSearch {
 
-    public function search($query = '') {
+    public function search($query = '', $page = '1', $per_page = '10') {
         $query = str_replace("'", "", $query);
         $query_terms = split("[ ,;\.\n\r\t]+", trim($query));
         
@@ -11,7 +11,14 @@ class HolmesSearch {
         
         $ranked_documents = $this->rank_documents($query_vector, $document_vectors);
         
+        $ranked_documents = $this->paginate_documents($ranked_documents, $page, $per_page);
+
         return $ranked_documents;
+    }
+
+    private function paginate_documents($documents, $page, $per_page) {
+        // Improve logic here.
+        return array_slice($documents, ($page - 1) * $per_page, $per_page, true);
     }
 
     private function rank_documents($query_vector, $document_vectors) {
