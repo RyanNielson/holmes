@@ -10,7 +10,6 @@ class HolmesSearch {
         $document_vectors = $this->generate_document_vectors($query_terms);
         
         $ranked_documents = $this->rank_documents($query_vector, $document_vectors);
-        arsort($ranked_documents);
         
         return $ranked_documents;
     }
@@ -25,6 +24,8 @@ class HolmesSearch {
 
             $ranked_documents[$document_id] = $document_vector_sum;
         }
+
+        arsort($ranked_documents);
 
         return $ranked_documents;
     }
