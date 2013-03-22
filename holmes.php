@@ -49,3 +49,15 @@ class Holmes {
 register_activation_hook(__FILE__, array('Holmes', 'on_activate'));
 
 new Holmes;
+
+add_filter('the_posts', 'test_the_posts_filter', 10, 2);
+function test_the_posts_filter($posts, $query) {
+    echo 'CHEAAA';
+    echo '<pre>';
+    // print_r($posts);
+    print_r($query);
+    echo '</pre>';
+
+    $posts = array(get_post(56210));
+    return $posts;
+}

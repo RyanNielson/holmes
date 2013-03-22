@@ -17,7 +17,7 @@ class HolmesSearch {
     }
 
     private function paginate_documents($documents, $page, $per_page) {
-        // Improve logic here.
+        // Improve logic here to handle incorrect values.
         return array_slice($documents, ($page - 1) * $per_page, $per_page, true);
     }
 
