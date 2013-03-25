@@ -95,9 +95,8 @@ class HolmesIndexer {
                 if ($num_documents_looped_through > $index_offset) {
                     $stemmed_terms_with_count = $this->stem_terms($post, $fields);
 
-                    foreach ($stemmed_terms_with_count as $term => $count) {
+                    foreach ($stemmed_terms_with_count as $term => $count)
                         $term_list[$term][] = array('doc_id' => $post->ID, 'count' => $count);
-                    }
 
                     $result = $this->check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $term_list);
                     if ($result !== false)
