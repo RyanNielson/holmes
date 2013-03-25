@@ -15,7 +15,11 @@ require_once('core/admin.php');
 class Holmes {
 
     public function __construct() {
-       new HolmesAdmin;
+        register_activation_hook(__FILE__, array($this, 'on_activate'));
+        add_filter('the_posts', array($this, 'hook_into_search'), 10, 2);
+
+        if (is_admin())
+            new HolmesAdmin;
     }
 
     public function on_activate() {
@@ -45,25 +49,22 @@ class Holmes {
         );";
         dbDelta($sql);
     }
-}
 
-register_activation_hook(__FILE__, array('Holmes', 'on_activate'));
+    public function hook_into_search($posts, $query) {
+        if (is_search() && $query->is_main_query() && !is_admin()) {
+            $search_query = $query->query['s'];
+            $search = new HolmesSearch;
+
+            $page = is_paged() ? $query->query['paged'] : 1;
+            
+            $search_results = $search->search($search_query, $page, get_query_var('posts_per_page'));
+            $query->max_num_pages = $search_results['max_num_pages'];
+
+            $posts = $search_results['results'];
+        }
+        
+        return $posts;
+    }
+}
 
 new Holmes;
-
-add_filter('the_posts', 'test_the_posts_filter', 10, 2);
-function test_the_posts_filter($posts, $query) {
-    if (is_search() && $query->is_main_query() && !is_admin()) {
-        $search_query = $query->query['s'];
-        $search = new HolmesSearch;
-
-        $page = is_paged() ? $query->query['paged'] : 1;
-        
-        $search_results = $search->search($search_query, $page, get_query_var('posts_per_page'));
-        $query->max_num_pages = $search_results['max_num_pages'];
-
-        $posts = $search_results['results'];
-    }
-    
-    return $posts;
-}

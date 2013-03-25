@@ -89,12 +89,8 @@ class HolmesSearch {
     }
 
     private function generate_document_vectors($query_terms) {
-        global $wpdb;
         $occurances = $this->get_term_occurances($query_terms);
-        $term_document_counts = array();
-
-        $num_total_documents = $wpdb->get_var("SELECT COUNT(DISTINCT(document_id)) FROM wp_holmes_document_index");
-
+        
         $documents = array();
         $term_to_documents = array();
         foreach ($occurances as $occurance) {
@@ -113,14 +109,18 @@ class HolmesSearch {
                 $term_to_documents[$term] = array();
         }
 
+        return $this->calculate_document_vectors($documents, $term_to_documents);
+    }
+
+    private function calculate_document_vectors($documents, $term_to_documents) {
+        global $wpdb;
+        $num_total_documents = $wpdb->get_var("SELECT COUNT(DISTINCT(document_id)) FROM wp_holmes_document_index");
+
         $document_vectors = array();
         foreach ($documents as $document_id => $term_list) {
             $document_vector = array();
             foreach ($term_list as $term => $count) {
-                $tf = $count;
-                $idf = log($num_total_documents / (1 + count($term_to_documents[$term])));
-
-                $document_vector[$term] = $tf * $idf;
+                $document_vector[$term] = $this->calculate_tdidf($count, $num_total_documents, count($term_to_documents[$term]));
             }
 
             $document_vectors[$document_id] = $this->normalize_vector($document_vector);
@@ -129,13 +129,19 @@ class HolmesSearch {
         return $document_vectors;
     }
 
+    private function calculate_tdidf($num_in_document, $num_documents, $documents_containing_term) {
+        $tf = $num_in_document;
+        $idf = log($num_documents / (1 + $documents_containing_term));
+
+        return $tf * $idf;
+    }
+
     private function get_term_occurances($query_terms) {
         global $wpdb;
 
         $query_conditions = array();
-        foreach ($query_terms as $terms) {
+        foreach ($query_terms as $terms)
             $query_conditions[] = "t.term = '%s'";
-        }
 
         $sql = "SELECT t.term, d.document_id, d.count FROM wp_holmes_term_index t
                 LEFT JOIN wp_holmes_document_index d
