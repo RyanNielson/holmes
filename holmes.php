@@ -7,6 +7,7 @@
  * Description: Improved Wordpress search.
  */
 
+require_once('core/helpers.php');
 require_once('core/searcher.php');
 require_once('core/indexer.php');
 require_once('core/admin.php');
