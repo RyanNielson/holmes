@@ -95,9 +95,8 @@ class HolmesIndexer {
                 if ($num_documents_looped_through > $index_offset) {
                     $stemmed_terms_with_count = $this->stem_terms($post, $fields);
 
-                    foreach ($stemmed_terms_with_count as $term => $count) {
+                    foreach ($stemmed_terms_with_count as $term => $count)
                         $term_list[$term][] = array('doc_id' => $post->ID, 'count' => $count);
-                    }
 
                     $result = $this->check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $term_list);
                     if ($result !== false)
@@ -182,43 +181,36 @@ class HolmesIndexer {
     }
 
     public function ajax_run_indexer() {
-        $index_offset = get_option('holmes_indexer_offset');
-        $index_offset = (isset($index_offset) && $index_offset) ? $index_offset : 0;
-        update_option('holmes_indexer_offset', $index_offset + 200);
+        if (current_user_can('manage_options')) {
+            $index_offset = get_option('holmes_indexer_offset');
+            $index_offset = (isset($index_offset) && $index_offset) ? $index_offset : 0;
+            update_option('holmes_indexer_offset', $index_offset + 200);
 
-        $indexer = new HolmesIndexer;
-        $result = $indexer->index($index_offset);
+            $indexer = new HolmesIndexer;
+            $result = $indexer->index($index_offset);
 
-        echo json_encode($result);
-        exit();
+            echo json_encode($result);
+            exit();
+        }
     }
 
     public function ajax_start_indexer() {
-        global $wpdb;
+        if (current_user_can('manage_options')) {
+            global $wpdb;
 
-        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_term_index"));
-        $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_document_index"));
+            $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_term_index"));
+            $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_document_index"));
 
-        update_option('holmes_indexer_offset', 200);
+            update_option('holmes_indexer_offset', 200);
 
-        $indexer = new HolmesIndexer;
-        $result = $indexer->index();
+            $indexer = new HolmesIndexer;
+            $result = $indexer->index();
 
-        echo json_encode($result);
-        exit();
-    }
-
-    public function ajax_initiate_indexer() {
-        update_option('holmes_indexer_progress', 0);
-        exit();
+            echo json_encode($result);
+            exit();
+        }
     }
 }
 
 add_action('wp_ajax_holmes_start_indexer', array('HolmesIndexer', 'ajax_start_indexer'));
-add_action('wp_ajax_nopriv_holmes_start_indexer', array('HolmesIndexer', 'ajax_start_indexer'));
-
 add_action('wp_ajax_holmes_run_indexer', array('HolmesIndexer', 'ajax_run_indexer'));
-add_action('wp_ajax_nopriv_holmes_run_indexer', array('HolmesIndexer', 'ajax_run_indexer'));
-
-add_action('wp_ajax_holmes_initiate_indexer', array('HolmesIndexer', 'ajax_initiate_indexer'));
-add_action('wp_ajax_nopriv_holmes_initiate_indexer', array('HolmesIndexer', 'ajax_initiate_indexer'));

@@ -40,9 +40,8 @@ class HolmesSearch {
         $ranked_documents = array();
         foreach ($document_vectors as $document_id => $terms) {
             $document_vector_sum = 0;
-            foreach ($terms as $term => $tfidf) {
+            foreach ($terms as $term => $tfidf)
                 $document_vector_sum += $query_vector[$term] * $tfidf;
-            }
 
             $ranked_documents[$document_id] = $document_vector_sum;
         }
@@ -63,9 +62,8 @@ class HolmesSearch {
                 $query_term_counts[$term] = 1;
         }
 
-        foreach ($query_term_counts as $term => $count) {
+        foreach ($query_term_counts as $term => $count)
             $query_vector[$term] = $count; // / count($query_terms); Read later if necessary
-        }
 
         $query_vector = $this->normalize_vector($query_vector);
 
@@ -76,14 +74,13 @@ class HolmesSearch {
         $normalized_vector = array();
         $normalization_sum = 0;
 
-        foreach ($vector as $term => $tfidf) {
+        foreach ($vector as $term => $tfidf)
             $normalization_sum += pow($tfidf, 2);
-        }
+
         $normalization_value = sqrt($normalization_sum);
 
-        foreach ($vector as $term => $tfidf) {
+        foreach ($vector as $term => $tfidf)
             $normalized_vector[$term] = $tfidf; //Remove normalization / $normalization_value;
-        }
 
         return $normalized_vector;
     }
@@ -119,9 +116,8 @@ class HolmesSearch {
         $document_vectors = array();
         foreach ($documents as $document_id => $term_list) {
             $document_vector = array();
-            foreach ($term_list as $term => $count) {
+            foreach ($term_list as $term => $count)
                 $document_vector[$term] = $this->calculate_tdidf($count, $num_total_documents, count($term_to_documents[$term]));
-            }
 
             $document_vectors[$document_id] = $this->normalize_vector($document_vector);
         }
