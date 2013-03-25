@@ -52,12 +52,20 @@ new Holmes;
 
 add_filter('the_posts', 'test_the_posts_filter', 10, 2);
 function test_the_posts_filter($posts, $query) {
-    echo 'CHEAAA';
-    echo '<pre>';
-    // print_r($posts);
-    print_r($query);
-    echo '</pre>';
+    if (is_search() && $query->is_main_query() && !is_admin()) {
+        $search_query = $query->query['s'];
+        $search = new HolmesSearch;
 
-    $posts = array(get_post(56210));
+        $page = is_paged() ? $query->query['paged'] : 1;
+        
+        $search_results = $search->search($search_query, $page, get_query_var('posts_per_page'));
+        $query->max_num_pages = $search_results['max_num_pages'];
+
+        $posts = array();
+        foreach ($search_results['results'] as $post_id => $score) {
+            $posts[] = get_post($post_id);
+        }
+    }
+    
     return $posts;
 }

@@ -1,23 +1,30 @@
 <?php
 
 class HolmesSearch {
-
     public function search($query = '', $page = '1', $per_page = '10') {
+        $ranked_documents = $this->search_and_rank($query);
+
+        return array(
+            'results' => $this->paginate_documents($ranked_documents, $page, $per_page),
+            'max_num_pages' => $this->get_max_num_pages($ranked_documents, $per_page)
+        );
+    }
+
+    public function get_max_num_pages($documents, $per_page = '10') {
+         return ceil(count($documents) / $per_page);
+    }
+
+    public function search_and_rank($query = '') {
         $query = str_replace("'", "", $query);
         $query_terms = split("[ ,;\.\n\r\t]+", trim($query));
         
         $query_vector = $this->generate_query_vector($query_terms);
         $document_vectors = $this->generate_document_vectors($query_terms);
         
-        $ranked_documents = $this->rank_documents($query_vector, $document_vectors);
-        
-        $ranked_documents = $this->paginate_documents($ranked_documents, $page, $per_page);
-
-        return $ranked_documents;
+        return $this->rank_documents($query_vector, $document_vectors);
     }
 
     private function paginate_documents($documents, $page, $per_page) {
-        // Improve logic here to handle incorrect values.
         return array_slice($documents, ($page - 1) * $per_page, $per_page, true);
     }
 
