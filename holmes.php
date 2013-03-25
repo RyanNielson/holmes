@@ -61,10 +61,7 @@ function test_the_posts_filter($posts, $query) {
         $search_results = $search->search($search_query, $page, get_query_var('posts_per_page'));
         $query->max_num_pages = $search_results['max_num_pages'];
 
-        $posts = array();
-        foreach ($search_results['results'] as $post_id => $score) {
-            $posts[] = get_post($post_id);
-        }
+        $posts = $search_results['results'];
     }
     
     return $posts;
