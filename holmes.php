@@ -52,7 +52,8 @@ class Holmes {
 
     public function hook_into_search($posts, $query) {
         if (is_search() && $query->is_main_query() && !is_admin()) {
-            $search_query = $query->query['s'];
+            $search_query = stripslashes($query->query['s']);   // Strip slashes to fix wordpress automatically escaping.
+
             $search = new HolmesSearch;
 
             $page = is_paged() ? $query->query['paged'] : 1;

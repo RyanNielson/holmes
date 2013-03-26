@@ -3,7 +3,7 @@
 class HolmesSearch {
     public function search($query = '', $page = '1', $per_page = '10') {
         $ranked_documents = $this->search_and_rank($query);
-
+        
         return array(
             'results' => $this->paginate_documents($ranked_documents, $page, $per_page),
             'max_num_pages' => $this->get_max_num_pages($ranked_documents, $per_page)
