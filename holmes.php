@@ -62,25 +62,6 @@ class Holmes {
 
             $posts = $search_results['results'];
         }
-
-        // if (is_search() && $query->is_main_query() && !is_admin()) {
-        //     $search_query = $query->query['s'];
-        //     $search = new HolmesSearch;
-
-        //     $page = is_paged() ? $query->query['paged'] : 1;
-            
-        //     $search_results = $search->search_and_group($search_query, $page, get_query_var('posts_per_page'));
-
-        //     echo '<pre>';
-        //     print_r($search_results);
-        //     //print_r($this->paginate_grouped_documents($grouped_posts, 2, $per_page));
-        //     echo '</pre>';
-
-
-        //     $query->max_num_pages = $search_results['max_num_pages'];
-
-        //     $posts = $search_results['results']['all_post_types'];
-        // }
         
         return $posts;
     }
