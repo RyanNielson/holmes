@@ -3,10 +3,24 @@
 class HolmesSearch {
     public function search($query = '', $page = '1', $per_page = '10') {
         $ranked_documents = $this->search_and_rank($query);
-
+        
         return array(
             'results' => $this->paginate_documents($ranked_documents, $page, $per_page),
             'max_num_pages' => $this->get_max_num_pages($ranked_documents, $per_page)
+        );
+    }
+
+    public function search_and_group($query = '', $page = '1', $per_page = '10') {
+        $ranked_documents = $this->search_and_rank($query);
+
+        $grouped_posts = array('all_post_types' => $ranked_documents);
+        foreach ($ranked_documents as $post) {
+            $grouped_posts[$post->post_type][] = $post;
+        }
+
+        return array(
+            'results' => $this->paginate_grouped_documents($grouped_posts, $page, $per_page),
+            'max_num_pages' => $this->get_max_num_pages($ranked_documents, $per_page) // May need to change.
         );
     }
 
@@ -34,6 +48,15 @@ class HolmesSearch {
 
     private function paginate_documents($documents, $page, $per_page) {
         return array_slice($documents, ($page - 1) * $per_page, $per_page, true);
+    }
+
+    private function paginate_grouped_documents($documents, $page, $per_page) {
+        $paginated_results = array();
+        foreach ($documents as $post_type => $posts) {
+            $paginated_results[$post_type] = array_slice($posts, ($page - 1) * $per_page, $per_page, true);
+        }
+
+        return $paginated_results;
     }
 
     private function rank_documents($query_vector, $document_vectors) {

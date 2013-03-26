@@ -78,7 +78,8 @@ class HolmesAdmin {
             $html .= $args[2] ? '<span class="hide-fields">' : '<span>';
             $html .= '<input name="holmes_searchable_fields[' . $args[0] . '][' . $field['name'] . '][enabled]" id="holmes_searchable_fields_' . $args[0] . '_' . $field['name'] . '_enabled" type="checkbox" value="1" ' . (isset($options) && isset($options[$args[0]]) ? checked(1, $options[$args[0]][$field['name']]['enabled'] , false) : '') . ' /> ';
             $html .= '<label for="holmes_searchable_fields_' . $args[0] . '_' . $field['name'] . '">' . $field['label'] . '</label>'; 
-            $html .= '<input type="text" name="holmes_searchable_fields[' . $args[0] . '][' . $field['name'] . '][weight]" id="holmes_searchable_fields_' . $args[0] . '_' . $field['name'] . '_weight" value="' . (isset($options) && isset($options[$args[0]]) ? $options[$args[0]][$field['name']]['weight'] : '') . '"/><br/>'; 
+            //$html .= '<input type="text" name="holmes_searchable_fields[' . $args[0] . '][' . $field['name'] . '][weight]" id="holmes_searchable_fields_' . $args[0] . '_' . $field['name'] . '_weight" value="' . (isset($options) && isset($options[$args[0]]) ? $options[$args[0]][$field['name']]['weight'] : '') . '"/><br/>'; 
+            $html .= '<br/>';
             $html .= '</span>';
         }
 
