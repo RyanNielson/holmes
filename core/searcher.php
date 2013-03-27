@@ -118,7 +118,7 @@ class HolmesSearch {
             $term_to_documents[$occurance['term']][] = $occurance['document_id'];
         }
 
-        // FIX ISSUES HERE.
+        // FIX ISSUES HERE to weight properly.
 
         // Default term counts to 0. Clean up, HACK
         foreach ($query_terms as $term) {
@@ -130,10 +130,6 @@ class HolmesSearch {
             if (!array_key_exists($term, $term_to_documents))
                 $term_to_documents[$term] = array();
         }
-
-        echo '<pre>';
-        print_r(array($occurances, $documents, $term_to_documents));
-        echo '</pre>';
 
         return $this->calculate_document_vectors($documents, $term_to_documents);
     }
