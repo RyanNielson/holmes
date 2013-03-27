@@ -118,6 +118,8 @@ class HolmesSearch {
             $term_to_documents[$occurance['term']][] = $occurance['document_id'];
         }
 
+        // FIX ISSUES HERE to weight properly.
+
         // Default term counts to 0. Clean up, HACK
         foreach ($query_terms as $term) {
             foreach ($documents as &$document) {
@@ -149,7 +151,7 @@ class HolmesSearch {
     }
 
     private function calculate_tdidf($num_in_document, $num_documents, $documents_containing_term) {
-        $tf = $num_in_document;
+        $tf = $num_in_document; // Add weight here.
         $idf = log($num_documents / (1 + $documents_containing_term));
 
         return $tf * $idf;
@@ -162,7 +164,7 @@ class HolmesSearch {
         foreach ($query_terms as $terms)
             $query_conditions[] = "t.term = '%s'";
 
-        $sql = "SELECT t.term, d.document_id, d.count FROM wp_holmes_term_index t
+        $sql = "SELECT t.term, d.document_id, d.count, d.weight FROM wp_holmes_term_index t
                 LEFT JOIN wp_holmes_document_index d
                 ON t.id = d.term_id
                 WHERE " . implode(' OR ', $query_conditions);

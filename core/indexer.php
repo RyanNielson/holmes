@@ -10,19 +10,31 @@ class HolmesIndexer {
         $stemmed_terms = array();
 
         foreach ($fields as $field => $attributes) {
+           
             $value = '';
-            if ($field === 'title')
+            if ($field === 'title') {
                 $value = $post->post_title;
-            else if ($field === 'content')
+
+            }
+            else if ($field === 'content') {
                 $value = $post->post_content;
-            else
+            }
+            else {
                 $value = get_post_meta($post->ID, $field, true);
+            }
+
+            $weight = $attributes['weight'];
 
             // Fix issue with empty string causing indexing to fail.
             if (!$value)
                 $value = " ";
+            if (!$weight)
+                $weight = 50;
 
-            $stemmed_terms = array_merge($stemmed_terms, HolmesHelpers::stem_terms($value));
+            $terms = HolmesHelpers::stem_terms($value);
+            foreach ($terms as $term) {
+                $stemmed_terms[] = array('term' => $term, 'weight' => $weight, 'field' => $field);
+            }
         }
 
         return $this->stem_terms_and_count($stemmed_terms);
@@ -31,28 +43,36 @@ class HolmesIndexer {
     private function stem_terms_and_count($stemmed_terms) {
         $stemmed_terms_with_count = array();
 
-        foreach ($stemmed_terms as $term) {
-            if (isset($stemmed_terms_with_count[$term]))
-                $stemmed_terms_with_count[$term] += 1;
-            else
-                $stemmed_terms_with_count[$term] = 1;
+        foreach ($stemmed_terms as $term_data) {
+            $exists = false;
+            foreach ($stemmed_terms_with_count as &$term_and_count_data) {
+                if ($term_data['term'] === $term_and_count_data['term'] && $term_data['field'] === $term_and_count_data['field']) {
+                    $exists = true;
+                    $term_and_count_data['count'] += 1;
+                    break;
+                }
+            }
+
+            if (!$exists)
+                $stemmed_terms_with_count[] = array_merge($term_data, array('count' => 1));
         }
 
         return $stemmed_terms_with_count;
     }
 
-    private function check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $term_list) {
+    private function check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $stemmed_terms_with_count, $term_list) {
+
         if ($num_documents_looped_through >= $total_posts_count) {
-            $result = $this->dump_to_db($term_list);
+            $result = $this->dump_to_db($stemmed_terms_with_count, $term_list);
             if ($result === false)
-                return array('result' => 'error', 'message' => 'Error adding to index.');
+                return array('result' => 'error', 'message' => 'Error adding to index 1.');
             else
                 return array('result' => 'complete', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count);
         }
         else if ($num_documents_looped_through >= $num_index_upper_limit) {
-            $result = $this->dump_to_db($term_list);
+            $result = $this->dump_to_db($stemmed_terms_with_count, $term_list);
             if ($result === false)
-                return array('result' => 'error', 'message' => 'Error adding to index.');
+                return array('result' => 'error', 'message' => 'Error adding to index 2.');
             else
                 return array('result' => 'more', 'looped_through' => $num_documents_looped_through, 'total' => $total_posts_count);
         }
@@ -79,7 +99,9 @@ class HolmesIndexer {
         $num_documents_looped_through = 0;
         $num_index_upper_limit = $index_offset + $num_indexed_per_request;
         $term_list = array();
-       
+        $stemmed_terms_with_count = array();
+        $stemmed_terms_with_count_and_doc = array();
+
         $searchable_post_types = $this->get_searchable_post_types();
         $total_posts_count = $this->get_total_posts_count($searchable_post_types);
         
@@ -95,10 +117,12 @@ class HolmesIndexer {
                 if ($num_documents_looped_through > $index_offset) {
                     $stemmed_terms_with_count = $this->stem_terms($post, $fields);
 
-                    foreach ($stemmed_terms_with_count as $term => $count)
-                        $term_list[$term][] = array('doc_id' => $post->ID, 'count' => $count);
+                    foreach ($stemmed_terms_with_count as $term_data) {
+                        $stemmed_terms_with_count_and_doc[] = array_merge($term_data, array('doc_id' => $post->ID)); // $term_data['doc_id'] = $post->ID;
+                        $term_list[$term_data['term']] = $term_data['term'];
+                    }
 
-                    $result = $this->check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $term_list);
+                    $result = $this->check_progress($num_documents_looped_through, $total_posts_count, $num_index_upper_limit, $stemmed_terms_with_count_and_doc, $term_list);
                     if ($result !== false)
                         return $result;
                 }
@@ -137,31 +161,32 @@ class HolmesIndexer {
         return $terms_to_ids;
     }
 
-    private function dump_to_db($term_list) {
+    private function dump_to_db($stemmed_terms_with_count, $term_list) {
         global $wpdb;
 
         $terms_to_ids = $this->update_terms_index($term_list);
         
-        return $this->add_to_document_index($term_list, $terms_to_ids);
+        return $this->add_to_document_index($stemmed_terms_with_count, $terms_to_ids);
     }
 
-    private function add_to_document_index($term_list, $terms_to_ids) {
+    private function add_to_document_index($stemmed_terms_with_count, $terms_to_ids) {
         global $wpdb;
 
-        $sql = "INSERT INTO " . $wpdb->prefix . "holmes_document_index (term_id, document_id, count) VALUES ";
+        $sql = "INSERT INTO " . $wpdb->prefix . "holmes_document_index (term_id, document_id, count, weight) VALUES ";
         $values = array();
         $place_holders = array();
 
-        foreach ($term_list as $term => $documents) {
-            foreach ($documents as $document) {
-                array_push($values, $terms_to_ids[$term], $document['doc_id'], $document['count']);
-                $place_holders[] = "('%d', '%d' ,'%d')";
-            }
+        foreach ($stemmed_terms_with_count as $term_data) {
+            array_push($values, $terms_to_ids[$term_data['term']], $term_data['doc_id'], $term_data['count'], $term_data['weight']);
+            $place_holders[] = "('%d', '%d', '%d', '%d')";
         }
 
-        $sql .= implode(', ', $place_holders);
+        if (!empty($values)) {
+            $sql .= implode(', ', $place_holders);
+            return $wpdb->query($wpdb->prepare("$sql ", $values));
+        }
 
-        return $wpdb->query($wpdb->prepare("$sql ", $values));
+        return true;
     }
 
     private function get_searchable_post_types() {
