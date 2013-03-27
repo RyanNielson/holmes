@@ -43,6 +43,7 @@ class Holmes {
             term_id bigint(20) unsigned NOT NULL,
             document_id bigint(20) unsigned NOT NULL,
             count bigint(20) unsigned NOT NULL,
+            weight bigint(20) unsigned NOT NULL DEFAULT 50,
 
             PRIMARY KEY (`id`),
             FOREIGN KEY (`term_id`) REFERENCES Persons(`id`)
@@ -53,7 +54,6 @@ class Holmes {
     public function hook_into_search($posts, $query) {
         if (is_search() && $query->is_main_query() && !is_admin()) {
             $search_query = stripslashes($query->query['s']);   // Strip slashes to fix wordpress automatically escaping.
-
             $search = new HolmesSearch;
 
             $page = is_paged() ? $query->query['paged'] : 1;
