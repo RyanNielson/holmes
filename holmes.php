@@ -2,9 +2,9 @@
 /**
  * Plugin Name: Holmes
  * Author: Norex
- * Author URI: http://ryannielson.ca/
+ * Author URI: http://ryannielson.net/
  * Version: 1.0.0
- * Description: Improved Wordpress search.
+ * Description: Improved Wordpress search with customizable weighting.
  */
 
 require_once('core/helpers.php');

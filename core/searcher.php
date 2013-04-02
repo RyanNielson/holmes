@@ -34,6 +34,13 @@ class HolmesSearch {
         $query_vector = $this->generate_query_vector($query_terms);
         $document_vectors = $this->generate_document_vectors($query_terms);
         
+        // echo '<pre>';
+        // print_r($query_vector);
+        // print_r($document_vectors);
+        // // print_r($documents);
+        // // print_r($term_to_documents);
+        // echo '</pre>';
+
         $ranked_documents = $this->rank_documents($query_vector, $document_vectors);
 
         $posts = array();
@@ -114,24 +121,42 @@ class HolmesSearch {
         $documents = array();
         $term_to_documents = array();
         foreach ($occurances as $occurance) {
-            $documents[$occurance['document_id']][$occurance['term']] = $occurance['count'];
-            $term_to_documents[$occurance['term']][] = $occurance['document_id'];
+            $documents[$occurance['document_id']][] = $occurance;
+            if (!in_array($occurance['document_id'], $term_to_documents[$occurance['term']]))
+                $term_to_documents[$occurance['term']][] = $occurance['document_id'];
         }
 
-        // FIX ISSUES HERE to weight properly.
+        $improved_documents = array();
+        foreach ($documents as $doc_id => $document) {
+            $combined_terms = array();
+            foreach ($document as $term_data) {
+                $term = $term_data['term'];
+                $count = $term_data['count'];
+                $weight = $term_data['weight'];
+                $document_id = $term_data['document_id'];
 
-        // Default term counts to 0. Clean up, HACK
+                if (array_key_exists($term, $combined_terms)) {
+                    $combined_terms[$term] = $combined_terms[$term] + ($weight / 50 * $count);
+                }
+                else {
+                    $combined_terms[$term] = $weight / 50 * $count;
+                }
+            }
+
+            $improved_documents[$doc_id] = $combined_terms;
+        }
+
         foreach ($query_terms as $term) {
-            foreach ($documents as &$document) {
-                if (!array_key_exists($term, $document))
-                    $document[$term] = 0;
+            foreach ($improved_documents as &$improved_document) {
+                if (!array_key_exists($term, $improved_document))
+                    $improved_document[$term] = 0;
             }
 
             if (!array_key_exists($term, $term_to_documents))
                 $term_to_documents[$term] = array();
         }
 
-        return $this->calculate_document_vectors($documents, $term_to_documents);
+        return $this->calculate_document_vectors($improved_documents, $term_to_documents);
     }
 
     private function calculate_document_vectors($documents, $term_to_documents) {
@@ -139,6 +164,11 @@ class HolmesSearch {
         $num_total_documents = $wpdb->get_var("SELECT COUNT(DISTINCT(document_id)) FROM wp_holmes_document_index");
 
         $document_vectors = array();
+
+        // echo '<pre>';
+        // print_r($documents);
+        // echo '</pre>';
+
         foreach ($documents as $document_id => $term_list) {
             $document_vector = array();
             foreach ($term_list as $term => $count)
@@ -171,5 +201,90 @@ class HolmesSearch {
 
         return $wpdb->get_results($wpdb->prepare($sql, $query_terms), ARRAY_A);
     }
+
+
+
+    // OLD METHOD
+    // private function generate_document_vectors($query_terms) {
+    //     $occurances = $this->get_term_occurances($query_terms);
+        
+    //     $documents = array();
+    //     $term_to_documents = array();
+    //     foreach ($occurances as $occurance) { // Change for multiple counts.
+    //         $documents[$occurance['document_id']][] = $occurance;
+    //         if (!in_array($occurance['document_id'], $term_to_documents[$occurance['term']]))
+    //             $term_to_documents[$occurance['term']][] = $occurance['document_id'];
+    //         // $documents[$occurance['document_id']][$occurance['term']] = $occurance['count'];
+    //         // $term_to_documents[$occurance['term']][] = $occurance['document_id'];
+    //     }
+
+    //     // echo '<pre>';
+    //     // print_r($occurances);
+    //     // print_r($documents);
+        
+    //     //echo '</pre>';
+
+    //     // New additions for weighting.
+
+    //     $improved_documents = array();
+    //     foreach ($documents as $doc_id => $document) {
+    //         $combined_terms = array();
+    //         foreach ($document as $term_data) {
+    //             $term = $term_data['term'];
+    //             $count = $term_data['count'];
+    //             $weight = $term_data['weight'];
+    //             $document_id = $term_data['document_id'];
+
+    //             if (array_key_exists($term, $combined_terms)) {
+    //                 //$combined_terms[$term]['count'] = $combined_terms[$term]['count'] + ($weight / 50 * $count);
+    //                 $combined_terms[$term] = $combined_terms[$term] + ($weight / 50 * $count);
+    //             }
+    //             else {
+    //                 $combined_terms[$term] = $weight / 50 * $count;
+    //                 // $combined_terms[$term] = array(
+    //                 //     'term' => $term,
+    //                 //     'document_id' => $document_id,
+    //                 //     'count' => $weight / 50 * $count
+    //                 // );
+    //             }
+    //         }
+
+    //         $improved_documents[$doc_id] = $combined_terms;
+    //     }
+
+       
+
+    //     // // Default term counts to 0. Clean up, HACK
+    //     // foreach ($query_terms as $term) {
+    //     //     foreach ($documents as &$document) {
+    //     //         if (!array_key_exists($term, $document))
+    //     //             $document[$term] = 0;
+    //     //     }
+
+    //     //     if (!array_key_exists($term, $term_to_documents))
+    //     //         $term_to_documents[$term] = array();
+    //     // }
+
+    //     foreach ($query_terms as $term) {
+    //         foreach ($improved_documents as &$improved_document) {
+    //             if (!array_key_exists($term, $improved_document))
+    //                 $improved_document[$term] = 0;
+    //         }
+
+    //         if (!array_key_exists($term, $term_to_documents))
+    //             $term_to_documents[$term] = array();
+    //     }
+
+    //     // print_r($term_to_documents);
+    //     // print_r($improved_documents);
+    //     // echo '</pre>';
+
+    //     // FIX ISSUES HERE to weight properly.
+       
+    //     // END FIX
+
+    //     return $this->calculate_document_vectors($improved_documents, $term_to_documents);
+    //     // return $this->calculate_document_vectors($documents, $term_to_documents);
+    // }
 
 }
