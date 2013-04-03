@@ -52,7 +52,7 @@ class HolmesSearch {
     private function paginate_grouped_documents($documents, $page, $per_page) {
         $paginated_results = array();
         foreach ($documents as $post_type => $posts) {
-            $paginated_results[$post_type] = array_slice($posts, ($page - 1) * $per_page, $per_page, true);
+            $paginated_results[$post_type] = array_slice($posts, ($page - 1) * $per_page, $per_page, false);
         }
 
         return $paginated_results;
