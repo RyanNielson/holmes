@@ -31,6 +31,8 @@ class HolmesIndexer {
             if (!$weight)
                 $weight = 50;
 
+            $value = strip_tags($value);
+
             $terms = HolmesHelpers::stem_terms($value);
             foreach ($terms as $term) {
                 $stemmed_terms[] = array('term' => $term, 'weight' => $weight, 'field' => $field);

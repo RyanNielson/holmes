@@ -3,7 +3,7 @@
 class HolmesSearch {
     public function search($query = '', $page = '1', $per_page = '10') {
         $ranked_documents = $this->search_and_rank($query);
-        
+
         return array(
             'results' => $this->paginate_documents($ranked_documents, $page, $per_page),
             'max_num_pages' => $this->get_max_num_pages($ranked_documents, $per_page)
@@ -33,14 +33,6 @@ class HolmesSearch {
 
         $query_vector = $this->generate_query_vector($query_terms);
         $document_vectors = $this->generate_document_vectors($query_terms);
-        
-        // echo '<pre>';
-        // print_r($query_vector);
-        // print_r($document_vectors);
-        // // print_r($documents);
-        // // print_r($term_to_documents);
-        // echo '</pre>';
-
         $ranked_documents = $this->rank_documents($query_vector, $document_vectors);
 
         $posts = array();
@@ -54,13 +46,13 @@ class HolmesSearch {
     }
 
     private function paginate_documents($documents, $page, $per_page) {
-        return array_slice($documents, ($page - 1) * $per_page, $per_page, true);
+        return array_slice($documents, ($page - 1) * $per_page, $per_page, false); // Switched to true to fix issues with keys.
     }
 
     private function paginate_grouped_documents($documents, $page, $per_page) {
         $paginated_results = array();
         foreach ($documents as $post_type => $posts) {
-            $paginated_results[$post_type] = array_slice($posts, ($page - 1) * $per_page, $per_page, true);
+            $paginated_results[$post_type] = array_slice($posts, ($page - 1) * $per_page, $per_page, false);
         }
 
         return $paginated_results;
