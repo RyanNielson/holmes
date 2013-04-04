@@ -17,6 +17,7 @@ class Holmes {
     public function __construct() {
         register_activation_hook(__FILE__, array($this, 'on_activate'));
         add_filter('the_posts', array($this, 'hook_into_search'), 10, 2);
+        add_action('save_post', array($this, 'index_on_save'), 10);
 
         if (is_admin())
             new HolmesAdmin;
@@ -35,6 +36,7 @@ class Holmes {
             PRIMARY KEY (`id`),
             UNIQUE (`term`)
         );";
+
         dbDelta($sql);
 
         $document_index_table_name = $wpdb->prefix . "holmes_document_index";
@@ -48,6 +50,7 @@ class Holmes {
             PRIMARY KEY (`id`),
             FOREIGN KEY (`term_id`) REFERENCES Persons(`id`)
         );";
+
         dbDelta($sql);
     }
 
@@ -66,6 +69,30 @@ class Holmes {
         
         return $posts;
     }
+
+    function index_on_save($post_id)  {
+        if (!wp_is_post_revision($post_id)) {
+            global $wpdb;
+
+            $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_term_index"));
+            $wpdb->query($wpdb->prepare("TRUNCATE TABLE " . $wpdb->prefix . "holmes_document_index"));
+
+            $index_offset = 0;
+            $indexer = new HolmesIndexer;
+            while(true) {
+                $result = $indexer->index($index_offset);
+
+                if ($result['result'] !== 'more')
+                    break;
+
+                $index_offset += 200;
+            }
+        }
+
+        return $post_id;
+    }
+
+
 }
 
 new Holmes;
