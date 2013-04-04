@@ -79,13 +79,18 @@ class Holmes {
 
             $index_offset = 0;
             $indexer = new HolmesIndexer;
-            while(true) {
-                $result = $indexer->index($index_offset);
 
-                if ($result['result'] !== 'more')
-                    break;
+            $searchable_post_types = $indexer->get_searchable_post_types();
+            $current_post_type = get_post_type($post_id);
+            if ($current_post_type && array_key_exists($current_post_type, $indexer->get_searchable_post_types())) {
+                while(true) {
+                    $result = $indexer->index($index_offset);
 
-                $index_offset += 200;
+                    if ($result['result'] !== 'more')
+                        break;
+
+                    $index_offset += 200;
+                }
             }
         }
 
