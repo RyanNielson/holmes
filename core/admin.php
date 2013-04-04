@@ -39,6 +39,10 @@ class HolmesAdmin {
                 register_setting('holmes_search_settings_options_group', 'holmes_searchable_fields');
             }
         }
+
+        add_settings_section('holmes_settings_stop_words_section', 'Stop Words', '',  'holmes_settings');
+        add_settings_field('holmes_stop_words', 'Stop Words', array($this, 'settings_stop_words_callback'), 'holmes_settings', 'holmes_settings_stop_words_section');
+        register_setting('holmes_search_settings_options_group', 'holmes_stop_words');
     }
 
     function settings_searchable_post_types_callback($args) {
@@ -53,6 +57,14 @@ class HolmesAdmin {
                 $html .= '<label for="holmes_searchable_post_types_' . $post_type->name .'"> '  . $post_type->label . '</label><br/>'; 
             }
         }
+
+        echo $html;
+    }
+
+    function settings_stop_words_callback($args) {
+       
+        $html  = '<textarea name="holmes_stop_words" id="holmes_stop_words" rows="4" cols="50">' . get_option('holmes_stop_words') .'</textarea>';
+        $html .= '<p class="description">A comma separated list of words to ignore during indexing.</p>';
 
         echo $html;
     }
@@ -79,7 +91,6 @@ class HolmesAdmin {
             $html .= '<input name="holmes_searchable_fields[' . $args[0] . '][' . $field['name'] . '][enabled]" id="holmes_searchable_fields_' . $args[0] . '_' . $field['name'] . '_enabled" type="checkbox" value="1" ' . (isset($options) && isset($options[$args[0]]) ? checked(1, $options[$args[0]][$field['name']]['enabled'] , false) : '') . ' /> ';
             $html .= '<label for="holmes_searchable_fields_' . $args[0] . '_' . $field['name'] . '">' . $field['label'] . '</label>'; 
             $html .= '<input type="text" name="holmes_searchable_fields[' . $args[0] . '][' . $field['name'] . '][weight]" id="holmes_searchable_fields_' . $args[0] . '_' . $field['name'] . '_weight" value="' . (isset($options) && isset($options[$args[0]]) ? $options[$args[0]][$field['name']]['weight'] : '') . '"/><br/>'; 
-            // $html .= '<br/>';
             $html .= '</span>';
         }
 
