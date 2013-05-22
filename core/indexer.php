@@ -191,7 +191,7 @@ class HolmesIndexer {
         return true;
     }
 
-    private function get_searchable_post_types() {
+    public function get_searchable_post_types() {
         $searchable_post_types = get_option('holmes_searchable_post_types');
         $searchable_fields = get_option('holmes_searchable_fields');
         $intersection = array_intersect_key($searchable_fields, $searchable_post_types);

@@ -32,7 +32,7 @@ class HolmesAdmin {
 
         $post_types = get_post_types(array(), 'objects');
         $banned_post_types = array('attachment', 'revision', 'nav_menu_item', 'acf');
-        $searchable_types = array_keys(get_option('holmes_searchable_post_types'));
+        $searchable_types = array_keys(get_option('holmes_searchable_post_types', array()));
         foreach ($post_types as $post_type) {
             if(!in_array($post_type->name, $banned_post_types)) {
                 add_settings_field('holmes_searchable_fields_' . $post_type->name, $post_type->label, array($this, 'settings_searchable_fields_callback'), 'holmes_settings', 'holmes_settings_searchable_fields_section', array($post_type->name, $post_type->label, !in_array($post_type->name, $searchable_types)));
