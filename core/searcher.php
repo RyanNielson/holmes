@@ -114,7 +114,7 @@ class HolmesSearch {
         $term_to_documents = array();
         foreach ($occurances as $occurance) {
             $documents[$occurance['document_id']][] = $occurance;
-            if (!in_array($occurance['document_id'], $term_to_documents[$occurance['term']]))
+            if (!$term_to_documents[$occurance['term']] || !in_array($occurance['document_id'], $term_to_documents[$occurance['term']]))
                 $term_to_documents[$occurance['term']][] = $occurance['document_id'];
         }
 
